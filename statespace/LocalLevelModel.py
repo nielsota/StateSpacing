@@ -30,7 +30,7 @@ class LocalLevelModel:
         
         if self.data_path:
             if self.data_path.exists():
-                self.y = pd.read_csv(self.data_path).values
+                self.y = pd.read_csv(self.data_path, dtype=np.float64).values
             else:
                 raise Exception('Path does not exist')
     
@@ -221,7 +221,7 @@ class LocalLevelModel:
         # REPLACE BY INIT FUNCTION?
         if diffuse:
             a[0] = 0
-            p[0] = 1e7
+            p[0] = 1e20
 
         # Compute values at time t=1
         f[0] = p[0] + var_eps
