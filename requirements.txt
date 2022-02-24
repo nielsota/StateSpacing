@@ -3,3 +3,4 @@ pandas
 jupyter
 matplotlib
 scipy
+statsmodels

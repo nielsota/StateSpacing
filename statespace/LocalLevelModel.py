@@ -9,28 +9,46 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+from scipy.stats import f as f_dist
+from statsmodels.stats.diagnostic import acorr_ljungbox
+from statsmodels.stats.diagnostic import het_breuschpagan, normal_ad
+
 
 @dataclass
 class LocalLevelModel:
+    '''
+    Class implemeting the local level model
+    '''
     
     data_path: Optional[Path] = None
+    
     params: Dict[str, float] = None
     y, a, att, a_hat, p, ptt, f, v, k, r = None, None, None, None, None, None, None, None, None, None
+    resid_diag = {}
     
     def __post_init__(self):
         
         if self.data_path:
             if self.data_path.exists():
-                self.y = pd.read_csv(self.data_path).values.astype("float")
+                self.y = pd.read_csv(self.data_path).values
             else:
                 raise Exception('Path does not exist')
     
-    def fit(self, y: Optional[np.ndarray] = None):
+    def fit(self, y: Optional[np.ndarray] = None) -> None:
+        '''
+        Fits a local level model and extracts filter (a), in-casted filter (att), smoothed filter (a_hat)
+        and all the other instance variables. 
+        
+                Parameters:
+                        y (np.Array[float], Optional)     : Observed time series
+
+                Returns:
+                        None
+        '''
         
         # If data added during construction, use that
-        
         if self.y is not None:
-            y = self.y
+           pass
         
         # If data not added during construction, should be passed to fit
         else: 
@@ -38,27 +56,71 @@ class LocalLevelModel:
                 raise Exception('Need a data source')
             else:
                 self.y = y.astype("float")
-        
+
+
+        # set options for minimization
         options = {
             'eps': 1e-6,
             'disp': True,
             'maxiter':500
         }
 
+        # since estimating variances, must be greater than 0
         bnds = ((0, None), (0, None))
 
+        # set initial values and construct array
         var_eta_ini = 500
         var_eps_ini = 500
         param_ini = np.array([var_eta_ini, var_eps_ini])
 
+        # maximize log-likelihook
         res = minimize(self._llik, param_ini, args=(self.y, ), method='L-BFGS-B', options=options, bounds=bnds)
 
+        # get best parameters
         params_dict = {'var_eta': res.x[0], 'var_eps': res.x[1]} 
         print(f'Parameters: {params_dict}')
 
+        # update instance values
         self.a, self.att, self.p, self.ptt, self.f, self.v, self.k = self._kalman_filter(self.y, **params_dict)
         self.a_hat, self.r  = self._kalman_smoother(self.a, self.p, self.f, self.v, self.k, **params_dict)
         
+    def residual_diagnostics(self, *args, **kwargs) -> List[Dict[str, float]]:
+        '''
+        Does residual diagnostics to assess model specification
+        
+                Parameters:
+                        resid (np.Array[float], Optional)     : Observed time series
+
+                Returns:
+                        None
+        
+        '''
+        
+        v, f = None, None
+        
+        if self.v is None or self.f is None:
+            raise Exception('model not yet fitted')
+        else:
+            v = self.v
+            f = self.f
+            
+        # If an observation at time t is not present, should not include in diagnostics
+        v = v[~np.isnan(v)]
+        f = f[~np.isinf(f)]
+        
+        # standardize the residuals
+        stand_resid = v / np.sqrt(f)
+        
+        H_dict = self._het_test(stand_resid, 1)
+        N_dict = self._normal_test(stand_resid)
+        Q_dict =self._serial_test(stand_resid, 10)
+
+        print(H_dict)
+        print(N_dict)
+        print(Q_dict)
+        
+        return [H_dict, N_dict, Q_dict]
+    
     def _get_nan_positions(self, y: np.ndarray) -> List[int]:
         '''
         Find positions of nan elements for the Kalman filter
@@ -277,3 +339,86 @@ class LocalLevelModel:
         llik = np.sum( (-1/2) * ( T * np.log(np.pi) + np.log(f[1:]) + np.square(v[1:]) / f[1:]))
 
         return -llik
+    
+    def _het_test(self, resid: np.ndarray, diff_elem: int) -> Dict[str, float]:
+
+        '''
+        Heteroskedasticity test of residuals
+        H0: residuals are homoskedastic
+        H1: residuals are heteroskedastic
+        
+                Parameters:
+                        resid (np.Array[float])     : standardized residuals
+
+                Returns:
+                        Dict[str, float]: Statistic and pvalue
+        
+        '''
+
+        n = len(resid)
+
+        # given p92 Commandeur Koopman book
+        h = int((n - diff_elem) / 3)
+
+        # test of variance, take squares
+        square_resid = np.square(resid)
+
+        # compute top and bottom of F-statistic
+        num = np.sum(square_resid[n - h: n - 1])
+        denom = np.sum(square_resid[diff_elem: diff_elem + h - 1])
+
+        # notice that len(num)=len(denom), so F-statistic is num/denom (no dof's)
+        F_stat = num / denom
+
+        H = None
+        if F_stat > 1:
+            p_val = f_dist.cdf(F_stat, h, h)
+        else:
+            p_val = f_dist.cdf(1 / F_stat, h, h)
+
+        return {'F_stat': F_stat, 'p_val': p_val}
+    
+    def _normal_test(self, resid: np.ndarray) -> Dict[str, float]:
+        """
+        Normality test of residuals
+        H0: residuals are normally distributed
+        H1: residuals are not normally distributed
+        
+                Parameters:
+                        resid (np.Array[float])     : standardized residuals
+
+                Returns:
+                        Dict[str, float]: Statistic and pvalue
+        
+        """
+
+        # get statistic and p_value
+        N_stat, p_val = normal_ad(resid)
+
+        return {'N_stat': N_stat, 'p_val': p_val}
+    
+    def _serial_test(self, resid: np.ndarray, lags: int) -> Dict[str, float]:
+        """
+        Normality test of residuals
+        H0: residuals are serially uncorrelated
+        H1: residuals are serially correlated
+        
+                Parameters:
+                        resid (np.Array[float])     : standardized residuals
+
+                Returns:
+                        Dict[str, float]: Statistic and pvalue
+        
+        """
+
+        # acorr_ljungbox expects lags as array
+        lags = np.array([lags])
+
+        # perform test, returns dataframe
+        S_df = acorr_ljungbox(resid, lags=lags)
+
+        # store values 
+        Q_stat = S_df['lb_stat'].item()
+        p_val = S_df['lb_pvalue'].item()
+
+        return {'Q_stat': Q_stat, 'p_val': p_val}
