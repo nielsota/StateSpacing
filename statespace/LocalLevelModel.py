@@ -1,4 +1,9 @@
 import pathlib
+import sys
+
+sys.path.append("../")
+
+from statespace import *
 
 from typing import List, Optional, Dict
 from dataclasses import dataclass
@@ -11,7 +16,7 @@ import matplotlib.pyplot as plt
 
 from scipy.stats import f as f_dist
 from statsmodels.stats.diagnostic import acorr_ljungbox
-from statsmodels.stats.diagnostic import het_breuschpagan, normal_ad
+from statsmodels.stats.diagnostic import het_breuschpagan, normal_ad    
 
 
 @dataclass
@@ -23,7 +28,7 @@ class LocalLevelModel:
     data_path: Optional[Path] = None
     
     params: Dict[str, float] = None
-    y, a, att, a_hat, p, ptt, f, v, k, r = None, None, None, None, None, None, None, None, None, None
+    y, a, att, a_hat, p, p_hat, ptt, f, v, k, r, n = None, None, None, None, None, None, None, None, None, None, None, None
     resid_diag = {}
     
     def __post_init__(self):
@@ -48,7 +53,7 @@ class LocalLevelModel:
         
         # If data added during construction, use that
         if self.y is not None:
-           pass
+            pass
         
         # If data not added during construction, should be passed to fit
         else: 
@@ -69,9 +74,9 @@ class LocalLevelModel:
         bnds = ((0, None), (0, None))
 
         # set initial values and construct array
-        var_eta_ini = 500
-        var_eps_ini = 500
-        param_ini = np.array([var_eta_ini, var_eps_ini])
+        VAR_ETA_INI = 500
+        VAR_EPS_INI = 500
+        param_ini = np.array([VAR_ETA_INI, VAR_EPS_INI])
 
         # maximize log-likelihook
         res = minimize(self._llik, param_ini, args=(self.y, ), method='L-BFGS-B', options=options, bounds=bnds)
@@ -82,7 +87,7 @@ class LocalLevelModel:
 
         # update instance values
         self.a, self.att, self.p, self.ptt, self.f, self.v, self.k = self._kalman_filter(self.y, **params_dict)
-        self.a_hat, self.r  = self._kalman_smoother(self.a, self.p, self.f, self.v, self.k, **params_dict)
+        self.a_hat, self.p_hat, self.r, self.n  = self._kalman_smoother(self.a, self.p, self.f, self.v, self.k, **params_dict)
         
     def residual_diagnostics(self, *args, **kwargs) -> List[Dict[str, float]]:
         '''
@@ -114,12 +119,60 @@ class LocalLevelModel:
         H_dict = self._het_test(stand_resid, 1)
         N_dict = self._normal_test(stand_resid)
         Q_dict =self._serial_test(stand_resid, 10)
-
-        print(H_dict)
-        print(N_dict)
-        print(Q_dict)
         
         return [H_dict, N_dict, Q_dict]
+    
+    def display_filters(self) -> None:
+        '''
+        Make a plot of all the filters
+        '''
+        fig, axs = plt.subplots(2,2)
+        fig.set_size_inches(18,9)
+        
+        T = len(self.y)
+        time = range(1871, 1871 + T)
+        
+        axs[0,0].plot(time, self.y, label=r'$y_t$')
+        axs[0,0].plot(time, self.a, label=r'forecast $E(\alpha_t|Y_{t-1})$')
+        axs[0,0].plot(time, self.att, label=r'now-cast $E(\alpha_t|Y_t)$')
+        axs[0,0].plot(time, self.a_hat, label=r'smoothing $E(\alpha_t|Y_n)$')
+        axs[0,0].set_title('All Filters: Nile Data')
+        
+        axs[0,1].plot(time, self.y, label=r'$y_t$')
+        axs[0,1].plot(time, self.a, label=r'now-cast $E(\alpha_t|Y_{t-1})$')
+        axs[0,1].set_title('Filtered State: Nile Data')
+        
+        axs[1,0].plot(time, self.y, label=r'$y_t$')
+        axs[1,0].plot(time, self.att, label=r'now-cast $E(\alpha_t|Y_t)$')
+        axs[1,0].set_title('In-casted State: Nile Data')
+        
+        axs[1,1].plot(time, self.y, label=r'$y_t$')
+        axs[1,1].plot(time, self.a_hat, label=r'smoothing $E(\alpha_t|Y_n)$')
+        axs[1,1].set_title('Smoothed State: Nile Data')
+        
+        for ax in axs.flatten().tolist():
+            ax.grid()
+            ax.legend()
+            
+    def display_decomposition(self) -> None:
+        '''
+        Decomposition of a time series into state and noise
+        '''
+       
+        fig, axs = plt.subplots(3,1)
+        fig.set_size_inches(14,10)
+        
+        T = len(self.y)
+        time = range(1871, 1871 + T)
+        
+        axs[0].set_title('Decomposition of observed time series')
+        axs[0].plot(self.y, label=r'observed $y_t$')
+        axs[1].plot(self.a, color='g', label=r'level $\alpha_t$')
+        axs[2].plot(self.v, color='r', label=r'error $v_t$')
+
+        for ax in axs:
+            ax.grid()
+            ax.legend()
     
     def _get_nan_positions(self, y: np.ndarray) -> List[int]:
         '''
@@ -277,10 +330,20 @@ class LocalLevelModel:
 
         # initialize r-and-smoother arrays, need r_0 for a_1, which is at index 0 of a
         r = np.zeros(T+1)
+        n = np.zeros(T+1)
         a_hat = np.zeros(T)
+        p_hat = np.zeros(T)
 
         # a_hat[t]: contains a_hat_{t+1}
         # r[t]    : contains r_t
+        # n[t]    : contains n_t
+        
+        '''
+        NOT clean code style to write this, but for future self: The problem here is that a_hat(r), so a_hat a function 
+        of r. r contains T+1 elements, because in the math it runs from T,...,0, wheras a runs from T,...,1. To keep it 
+        simple in the code, want the update to just be a_hat[t] = f(r[t]). Whereas in the math a_hat[t] = f(r[t-1]). Now
+        since a[t] contains a_{t+1}, can work this out in the code by letting r[t] contain r_{t-1}
+        '''
 
         # recursively compute smoothed state
         for t in range(T-1, -1, -1):
@@ -291,12 +354,15 @@ class LocalLevelModel:
             else:
                 # should start at r_{T-1} at index T, and end at r_0 at index 0
                 r[t] = v[t] / f[t] + l[t] * r[t+1]
+            
+            n[t] = 1 / f[t] + np.square(l[t]) * n[t+1]
 
             # a_hat_t = a_t + p_t * r_{t-1}
             # should start at a_hat{T} at index T-1, and end at a_1 at index 0
             a_hat[t] = a[t] + p[t] * r[t]
+            p_hat[t] = p[t] - np.square(p[t]) * n[t]
 
-        return a_hat, r
+        return a_hat, p_hat, r, n
     
     def _llik(self, params: np.ndarray, *args) -> float:
     
