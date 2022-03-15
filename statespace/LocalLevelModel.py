@@ -25,8 +25,8 @@ class LocalLevelModel:
     Class implemeting the local level model
     '''
     
+    # magic names -> change, add description to docstring
     data_path: Optional[Path] = None
-    
     params: Dict[str, float] = None
     y, a, att, a_hat, p, p_hat, ptt, f, v, k, r, n = None, None, None, None, None, None, None, None, None, None, None, None
     resid_diag = {}
