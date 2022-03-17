@@ -404,6 +404,7 @@ class LocalLevelModel:
         # compute log-likelihood
         llik = np.sum( (-1/2) * ( T * np.log(np.pi) + np.log(f[1:]) + np.square(v[1:]) / f[1:]))
 
+        print(-llik)
         return -llik
     
     def _het_test(self, resid: np.ndarray, diff_elem: int) -> Dict[str, float]:
