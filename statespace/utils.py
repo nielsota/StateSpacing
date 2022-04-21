@@ -109,9 +109,9 @@ def _initiate_variables(p: int, s: int, n: int, dtype=np.float64):
         dtype (_type_, optional): type. Defaults to np.float64.
 
     Returns:
-        Initiated versions of a, att, P, Ptt, v, F, K and M
+        Initiated versions of a, att, a_hat, P, Ptt, P_hat, v, F, K and M
     """
-    return np.zeros((p, 1, n)).astype(dtype), np.zeros((p, 1, n)).astype(dtype), np.zeros((p, p, n)).astype(dtype), np.zeros((p, p, n)).astype(dtype), np.zeros((s, 1, n)).astype(dtype), np.zeros((s, s, n)).astype(dtype), np.zeros((p, s, n)).astype(dtype), np.zeros((p, s, n)).astype(dtype)
+    return np.zeros((p, 1, n)).astype(dtype), np.zeros((p, 1, n)).astype(dtype), np.zeros((p, 1, n)).astype(dtype), np.zeros((p, p, n)).astype(dtype), np.zeros((p, p, n)).astype(dtype), np.zeros((p, p, n)).astype(dtype), np.zeros((s, 1, n)).astype(dtype), np.zeros((s, s, n)).astype(dtype), np.zeros((p, s, n)).astype(dtype), np.zeros((p, s, n)).astype(dtype)
 
 
 def _map_vector_to_matrices(params, param_map, *args, dtype=np.float64):
@@ -135,6 +135,7 @@ def _map_vector_to_matrices(params, param_map, *args, dtype=np.float64):
         i, j, t = v["index"]
         constant_through_time = v["constant"]
 
+        # will work even if shape if 3D, as long as time is last dimension
         if state_matrix_asstr == "Q":
             Q[i, j] = float(params[k])
         if state_matrix_asstr == "H":
