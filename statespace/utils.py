@@ -194,7 +194,7 @@ def _remove_inf_tensor(tensor: np.ndarray):
     return tensor[~np.any(np.isinf(tensor), axis =1)][:, :, None].transpose(1,2,0)
 
 def _get_bounds(dict_params: Dict[int, Dict]):
-    """_summary_
+    """ get the bounds from a dict_params objects
 
     Args:
         Dict (_type_): _description_
