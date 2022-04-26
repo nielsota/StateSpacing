@@ -193,6 +193,7 @@ def _remove_inf_tensor(tensor: np.ndarray):
     tensor = tensor.transpose(2, 0, 1)
     return tensor[~np.any(np.isinf(tensor), axis =1)][:, :, None].transpose(1,2,0)
 
+
 def _get_bounds(dict_params: Dict[int, Dict]):
     """ get the bounds from a dict_params objects
 
@@ -207,7 +208,7 @@ def _get_bounds(dict_params: Dict[int, Dict]):
 
     return bounds
 
-def read_target_from_path(path: pathlib.Path, dtype=np.float64, header=None) -> torch.Tensor:
+def read_target_from_path(path: pathlib.Path, dtype=np.float64, header=None) -> np.ndarray:
     
     if not path.exists():
         raise ValueError(f"path: {path} does not exist")
