@@ -259,7 +259,7 @@ class KalmanV1(KalmanProtocol):
         F_logdets = F_logdets[0] * F_logdets[1]
         
         # get elementwise v'F^(-1)v, then convert shape from [100, 1, 1] -> [100]
-        vFv = np.squeeze(self._bmm3(v.transpose(2, 1, 0), self._inv(F.transpose(2, 0, 1)), v.transpose(2, 0, 1)))
+        vFv = np.squeeze(self.ssmath._bmm3(v.transpose(2, 1, 0), self.ssmath._inv(F.transpose(2, 0, 1)), v.transpose(2, 0, 1)))
         
         # constant value 
         const = s * np.log(2 * np.pi) * np.ones_like(vFv)

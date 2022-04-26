@@ -69,7 +69,7 @@ class StateSpaceMathNumpy(MathProtocol):
         """
         return np.matmul(np.matmul(M1, M2), M3).astype(dtype)
 
-    def _bmm3(self, M1: np.ndarray, M2: np.ndarray, M3: np.ndarray, dtype=np.float64):
+    def _bmm3(M1: np.ndarray, M2: np.ndarray, M3: np.ndarray, dtype=np.float64):
         """computes batch matrix product of 3 matrices
 
     Args:
@@ -79,6 +79,5 @@ class StateSpaceMathNumpy(MathProtocol):
     Returns:
         M1M2M3: batch matrix multiplication of 3 matrices
     """
-        return self._bmm(self._bmm(M1, M2), M3).astype(dtype)
-
+        return np.einsum('Bij, Bjk -> Bik', np.einsum('Bij, Bjk -> Bik', M1, M2).astype(dtype), M3).astype(dtype)
   
