@@ -39,3 +39,6 @@ class KalmanProtocol(Protocol):
     def kalman_forecast(*args, time=10, dtype=np.float64) -> List[np.ndarray]:
         ...
 
+    def log_likelihood(params, *args) -> float:
+        ...
+

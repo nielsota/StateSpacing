@@ -1,6 +1,6 @@
 from typing import List, Protocol
 from StateSpacingProtocols import KalmanProtocol, MathProtocol
-from utils import _initiate_variables, _get_nan_positions
+from utils import _initiate_variables, _get_nan_positions, _map_vector_to_matrices, _remove_nan_tensor, _remove_inf_tensor
 
 import numpy as np
 
@@ -23,8 +23,6 @@ Variable names:
     P_hat : Smoothed variance,  variance of alpha_t given y_1,...y_{t},...y_{n}
     y     : Observation vector
 """
-
-
 
 class KalmanV1(KalmanProtocol):
 
@@ -228,4 +226,47 @@ class KalmanV1(KalmanProtocol):
             P_forecast[:,:,t] = self.ssmath._mm3(T, P_forecast[:,:,t-1], T.T) + self.ssmath._mm3(R, Q, R.T)
         
         return a_forecast[:,:,1:], P_forecast[:,:,1:]
+    
+    def log_likelihood(self, params, *args) -> float:
+        
+        T, Z, R, Q, H, y, param_map, diffuse, shapes = args
+        T, Z, R, Q, H = _map_vector_to_matrices(params, param_map, T, Z, R, Q, H)
+        
+        # get means and variances
+        _, _, _, _, F, v, _, _  = self.kalman_filter(T, Z, R, Q, H, y, diffuse, shapes)
+        
+        if diffuse:
+            num_states = T.shape[0]
+            F = F[:, :, num_states:]
+            v = v[:, :, num_states:]
+        
+        # If an observation at time t is not present, should not include in log-likelihood
+        v = _remove_nan_tensor(v)
+        F = _remove_inf_tensor(F)
+        
+        # number of observations
+        n = shapes['n']
+        
+        # dimension of state vector
+        p = shapes['p']
+
+        # dimension of observation vector
+        s = shapes['s']
+        
+        # get elementwise log determinants log|F|: check docs numpy returns (signs, abs of logdet)
+        F_logdets = np.linalg.slogdet(F.transpose(2, 0, 1))
+        F_logdets = F_logdets[0] * F_logdets[1]
+        
+        # get elementwise v'F^(-1)v, then convert shape from [100, 1, 1] -> [100]
+        vFv = np.squeeze(self._bmm3(v.transpose(2, 1, 0), self._inv(F.transpose(2, 0, 1)), v.transpose(2, 0, 1)))
+        
+        # constant value 
+        const = s * np.log(2 * np.pi) * np.ones_like(vFv)
+        
+        # compute log-likelihood
+        llik = -(1/2) * np.sum(const + vFv + F_logdets) 
+        
+        negative_llik = -llik.item()
+        
+        return negative_llik
 
