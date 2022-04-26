@@ -24,10 +24,10 @@ class MathProtocol(Protocol):
 
 class KalmanProtocol(Protocol):
 
-    def kalman_step(*args) -> List[np.ndarray]:
+    def _kalman_step(*args) -> List[np.ndarray]:
         ...
 
-    def kalman_step_missing(*args) -> List[np.ndarray]:
+    def _kalman_step_missing(*args) -> List[np.ndarray]:
         ...
     
     def kalman_filter(*args) -> List[np.ndarray]:

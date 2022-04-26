@@ -1,4 +1,5 @@
 from typing import List, Protocol
+from StateSpacingMath import StateSpaceMathNumpy
 from StateSpacingProtocols import KalmanProtocol, MathProtocol
 from utils import _initiate_variables, _get_nan_positions, _map_vector_to_matrices, _remove_nan_tensor, _remove_inf_tensor
 
@@ -27,9 +28,9 @@ Variable names:
 class KalmanV1(KalmanProtocol):
 
     # get an object of type math protocol to handle the math
-    ssmath: MathProtocol
+    ssmath: MathProtocol = StateSpaceMathNumpy
 
-    def kalman_step(self, *args) -> List[np.ndarray]:
+    def _kalman_step(self, *args) -> List[np.ndarray]:
         """Computes the next step in the Kalman recursion using numpy math methods
 
         Returns:
@@ -61,7 +62,7 @@ class KalmanV1(KalmanProtocol):
         # return computed values
         return a_next, P_next, att, Ptt, M, K, F, v
 
-    def kalman_step_missing(self, *args, dtype=np.float64) -> List[np.ndarray]:
+    def _kalman_step_missing(self, *args, dtype=np.float64) -> List[np.ndarray]:
         """Computes the next step in the Kalman recursion when y is missing using numpy math methods
 
         Returns:
