@@ -206,3 +206,23 @@ def _get_bounds(dict_params: Dict[int, Dict]):
     bounds = tuple(bounds)
 
     return bounds
+
+def read_target_from_path(path: pathlib.Path, dtype=np.float64, header=None) -> torch.Tensor:
+    
+    if not path.exists():
+        raise ValueError(f"path: {path} does not exist")
+    
+    # read data
+    data = np.squeeze(pd.read_csv(path, header=header).values)
+    
+    # if array of shape (n,)
+    if data.ndim == 1:
+        data = data[:, np.newaxis]
+    
+    n = data.shape[0]
+    p = data.shape[1]
+    
+    y = data.T
+    y = y[:, None, :]
+  
+    return y.astype(dtype)
