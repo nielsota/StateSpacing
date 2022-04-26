@@ -4,6 +4,28 @@ from utils import _initiate_variables, _get_nan_positions
 
 import numpy as np
 
+"""
+
+File containing implementations of the Kalman function: filter (and step and missing observation step), 
+smoothing and prediction
+
+Variable names:
+    T     : State transition matrix
+    Z     : Observation matrix
+    R     : 
+    Q     : Observation error covariance matrix
+    H     : State error covariance matrix
+    a     : State filter,     expectation of alpha_t given y_1,...y_{t-1}
+    att   : Incasting filter, expectation of alpha_t given y_1,...y_{t}
+    a_hat : Smoothed filter,  expectation of alpha_t given y_1,...y_{t},...y_{n}
+    P     : State variance,     variance of alpha_t given y_1,...y_{t-1}
+    Ptt   : Incasting variance, variance of alpha_t given y_1,...y_{t}
+    P_hat : Smoothed variance,  variance of alpha_t given y_1,...y_{t},...y_{n}
+    y     : Observation vector
+"""
+
+
+
 class KalmanV1(KalmanProtocol):
 
     # get an object of type math protocol to handle the math
@@ -34,9 +56,11 @@ class KalmanV1(KalmanProtocol):
         att = a + self.ssmath._mm(M, v)
         Ptt = P - self.ssmath._mm3(M, F, self.ssmath._T(M))
         
+        # filter updates
         a_next = self.ssmath._mm(T, att)
         P_next = self.ssmath._mm3(T, Ptt, self.ssmath._T(T)) + self.ssmath._mm3(R, Q, self.ssmath._T(R))
         
+        # return computed values
         return a_next, P_next, att, Ptt, M, K, F, v
 
     def kalman_step_missing(self, *args, dtype=np.float64) -> List[np.ndarray]:
@@ -46,10 +70,7 @@ class KalmanV1(KalmanProtocol):
             List[np.ndarray]: a_next, P_next, att, Ptt, M, K, F, v
         """
 
-        T, Z, R, Q, H, a, P, y = args
-
-        # dimension of observation vector
-        s = int(y.shape[0])
+        T, Z, R, Q, H, a, P, y, n, p, s = args
         
         # prediction error: v
         v = np.nan
@@ -61,20 +82,27 @@ class KalmanV1(KalmanProtocol):
         M = self.ssmath._mm3(P, self.ssmath._T(Z), self.ssmath._inv(F).astype(dtype)) 
         
         # kalman gain: K
-        K = np.zeros_like(self.ssmath._mm(T, M))
+        K = np.zeros((p, s))
         
         # incasted updates
         att = a
         Ptt = P
         
+        # filter updates
         a_next = self.ssmath._mm(T, att)
         P_next = self.ssmath._mm3(T, Ptt, self.ssmath._T(T)) + self.ssmath._mm3(R, Q, self.ssmath._T(R))
         
         return a_next, P_next, att, Ptt, M, K, F, v
     
     def kalman_filter(self, *args, dtype=np.float64) -> List[np.ndarray]:
-        """
-        perform all the steps of the Kalman filter
+        """the Kalman filter recursion
+
+        Args:
+            args: see above for description of variables
+            dtype (_type_, optional): _description_. Defaults to np.float64.
+
+        Returns:
+            List[np.ndarray]: filters and gains (see above for definition)
         """
         T, Z, R, Q, H, y, diffuse, shapes = args
         
@@ -108,7 +136,7 @@ class KalmanV1(KalmanProtocol):
             
             else:
                 y_t = y[:, :, t-1]
-                a[:, :, t], P[:, :, t], att[:, :, t-1], Ptt[:, :, t-1], M[:, :, t-1], K[:, :, t-1], F[:, :, t-1], v[:, :, t-1] = self._kalman_step_missing(T[:, :, t-1], Z[:, :, t-1], R[:, :, t-1], Q[:, :, t-1], H[:, :, t-1], a[:, :, t-1], P[:, :, t-1], y_t)
+                a[:, :, t], P[:, :, t], att[:, :, t-1], Ptt[:, :, t-1], M[:, :, t-1], K[:, :, t-1], F[:, :, t-1], v[:, :, t-1] = self._kalman_step_missing(T[:, :, t-1], Z[:, :, t-1], R[:, :, t-1], Q[:, :, t-1], H[:, :, t-1], a[:, :, t-1], P[:, :, t-1], y_t, n, p, s)
         
         if n-1 not in nan_pos_list:
             # do final incasting update
@@ -118,7 +146,7 @@ class KalmanV1(KalmanProtocol):
         else:
             # do final incasting update
             y_t = y[:, :, n-1]
-            _, _, att[:, :, n-1], Ptt[:, :, n-1], M[:, :, n-1], K[:, :, n-1], F[:, :, n-1], v[:, :, n-1] = self._kalman_step_missing(T[:, :, t-1], Z[:, :, t-1], R[:, :, t-1], Q[:, :, t-1], H[:, :, t-1], a[:, :, n-1], P[:, :, n-1], y_t)
+            _, _, att[:, :, n-1], Ptt[:, :, n-1], M[:, :, n-1], K[:, :, n-1], F[:, :, n-1], v[:, :, n-1] = self._kalman_step_missing(T[:, :, t-1], Z[:, :, t-1], R[:, :, t-1], Q[:, :, t-1], H[:, :, t-1], a[:, :, n-1], P[:, :, n-1], y_t, n, p, s)
         
         return a, att, P, Ptt, F, v, K, M 
     
@@ -171,7 +199,7 @@ class KalmanV1(KalmanProtocol):
         return a_hat, P_hat, r, N, L
 
     def kalman_forecast(self, *args, time=10, dtype=np.float64) -> List[np.ndarray]:
-        """_summary_
+        """Predict states and observable for given time window
 
         Args:
             time (int, optional): prediction window . Defaults to 10.
