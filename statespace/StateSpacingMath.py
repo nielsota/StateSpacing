@@ -76,7 +76,7 @@ class StateSpaceMathNumpy(MathProtocol):
         Mi (np.ndarray): Mi, i=1,2,3
         dtype (_type_, optional): type. Defaults to np.float64.
 
-    Returns:
+    Returns: ev
         M1M2M3: batch matrix multiplication of 3 matrices
     """
         return np.einsum('Bij, Bjk -> Bik', np.einsum('Bij, Bjk -> Bik', M1, M2).astype(dtype), M3).astype(dtype)

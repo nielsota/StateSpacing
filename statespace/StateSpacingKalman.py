@@ -11,18 +11,18 @@ File containing implementations of the Kalman function: filter (and step and mis
 smoothing and prediction
 
 Variable names:
-    T     : State transition matrix
-    Z     : Observation matrix
-    R     : 
-    Q     : Observation error covariance matrix
-    H     : State error covariance matrix
-    a     : State filter,     expectation of alpha_t given y_1,...y_{t-1}
-    att   : Incasting filter, expectation of alpha_t given y_1,...y_{t}
-    a_hat : Smoothed filter,  expectation of alpha_t given y_1,...y_{t},...y_{n}
-    P     : State variance,     variance of alpha_t given y_1,...y_{t-1}
-    Ptt   : Incasting variance, variance of alpha_t given y_1,...y_{t}
-    P_hat : Smoothed variance,  variance of alpha_t given y_1,...y_{t},...y_{n}
-    y     : Observation vector
+    T     (pxp)   : State transition matrix
+    Z     (sxp)   : State-Observation transition matrix
+    R     (pxp')  : State error map
+    Q     (p'xp') : Observation error covariance matrix
+    H     (sxs)   : State error covariance matrix
+    a     (px1)   : State filter,     expectation of alpha_t given y_1,...y_{t-1}
+    att   (px1)   : Incasting filter, expectation of alpha_t given y_1,...y_{t}
+    a_hat (px1)   : Smoothed filter,  expectation of alpha_t given y_1,...y_{t},...y_{n}
+    P     (px1)   : State variance,     variance of alpha_t given y_1,...y_{t-1}
+    Ptt   (px1)   : Incasting variance, variance of alpha_t given y_1,...y_{t}
+    P_hat (px1)   : Smoothed variance,  variance of alpha_t given y_1,...y_{t},...y_{n}
+    y     (px1)   : Observation vector
 """
 
 class KalmanV1(KalmanProtocol):
