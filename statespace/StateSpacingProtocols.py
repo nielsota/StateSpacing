@@ -42,3 +42,13 @@ class KalmanProtocol(Protocol):
     def log_likelihood(params, *args) -> float:
         ...
 
+class PlottingProtocol(Protocol):
+
+    def plot_states(*args):
+        ...
+
+    def plot_state(*args):
+        ...
+        
+    def plot_forecast(*args, time=10):
+        ...

@@ -254,7 +254,6 @@ class LinearGaussianModel_v1_numpy:
                 axs[0].plot(a_hat)
         else:
             if not state_only:
-                print(f'here now and using indxs: {indxs}')
                 signal = np.sum([Z[i, :] * a_hat[i, :] for i in indxs], axis=0)
                 axs[0].plot(signal)
             else:
