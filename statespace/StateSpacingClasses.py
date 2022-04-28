@@ -210,13 +210,14 @@ class LinearGaussianModel_v1_numpy:
         
         # get shapes
         filter_map = self.__get_filter_map()
-        filter_names = list(filter_map.values())
-        filter_keys = list(filter_map.keys())
-        
+
         # if no signal passed, assume level at index 0
         if not signal_components:
             print('assuming component at index 0 is main component of y')
         signal_components = signal_components if signal_components else [filter_map[0]]
+        
+        filter_names = list(filter_map.values())
+        filter_keys = list(filter_map.keys())
         
         # check if components in signal are in fact part of filters
         for component in signal_components:
