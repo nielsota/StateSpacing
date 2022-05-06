@@ -3,11 +3,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-class plotting_matplotlib(PlottingProtocol):
+class Plotting_Matplotlib(PlottingProtocol):
     
-    def plot_states(*args):
+    def plot_states(self, filter_map, signal_components, state_only, *args):
         
-        a, att, a_hat, y, T, Z, filter_map, signal_components, state_only = args
+        a, att, a_hat, y, T, Z = args
 
         filter_names = list(filter_map.values())
         filter_keys = list(filter_map.keys())
@@ -65,7 +65,7 @@ class plotting_matplotlib(PlottingProtocol):
             else:
                 axs[idx + 1].plot(a_hat[i, :])
 
-    def plot_state(*args, state_name: str, filter_type='smoothed'):
+    def plot_state(self, state_name: str, *args, filter_type='smoothed'):
         """ Plots a particular state with is variance
 
         Args:
@@ -76,7 +76,7 @@ class plotting_matplotlib(PlottingProtocol):
              A plot of filter mean and variance
         """
 
-        a, att, a_hat, P, Ptt, P_hat, y, T, Z, filter_map, signal_components, state_only = args
+        a, att, a_hat, P, Ptt, P_hat, y, T, Z, filter_map= args
         
         # check if entered type is allowed
         allowed_types = ['smoothed', 'incasted', 'filtered']
