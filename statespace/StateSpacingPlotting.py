@@ -31,10 +31,12 @@ class Plotting_Matplotlib(PlottingProtocol):
         Z = np.squeeze(Z)
         y = np.squeeze(y)
         a_hat = np.squeeze(a_hat)
+
+        # get dimension of state
         
         # create plot 
         fig, axs = plt.subplots(num_plots, sharex=True)
-        fig.set_size_inches(10, 10)
+        fig.set_size_inches(15, 10)
         
         axs[0].set_title('Observation + Level (at index 0)')
         axs[0].plot(range(len(y)), y)

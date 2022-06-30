@@ -554,6 +554,9 @@ class LinearGaussianModel_v2_numpy:
 
         # get observations
         y = self.y
+
+        # get shapes
+        shapes = self.shapes
         
         # get system matrices
         T, Z, R, Q, H = self.__get_state_matrices()
