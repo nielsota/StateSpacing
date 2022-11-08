@@ -1,7 +1,7 @@
 from typing import List, Protocol
-from StateSpacingMath import StateSpaceMathNumpyV1, StateSpaceMathNumpyV2, StateSpaceMathNumpyV3
-from StateSpacingProtocols import KalmanProtocol, MathProtocol
-from utils import _initiate_variables, _get_nan_positions, _map_vector_to_matrices, _remove_nan_tensor, _remove_inf_tensor
+from .StateSpacingMath import StateSpaceMathNumpyV1, StateSpaceMathNumpyV2, StateSpaceMathNumpyV3
+from .StateSpacingProtocols import KalmanProtocol, MathProtocol
+from .utils import _initiate_variables, _get_nan_positions, _map_vector_to_matrices, _remove_nan_tensor, _remove_inf_tensor
 
 import numpy as np
 

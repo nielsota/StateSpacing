@@ -1,4 +1,4 @@
-from StateSpacingProtocols import PlottingProtocol
+from .StateSpacingProtocols import PlottingProtocol
 import matplotlib.pyplot as plt
 import numpy as np
 

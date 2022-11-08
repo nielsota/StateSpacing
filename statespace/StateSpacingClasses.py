@@ -9,10 +9,10 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-from utils import _initiate_variables, _map_vector_to_matrices, _get_nan_positions, _remove_nan_tensor, _remove_inf_tensor, _get_bounds, read_target_from_path
-from StateSpacingKalman import KalmanV1
-from StateSpacingPlotting import Plotting_Matplotlib
-from StateSpacingProtocols import KalmanProtocol, MathProtocol, PlottingProtocol
+from .utils import _initiate_variables, _map_vector_to_matrices, _get_nan_positions, _remove_nan_tensor, _remove_inf_tensor, _get_bounds, read_target_from_path
+from .StateSpacingKalman import KalmanV1
+from .StateSpacingPlotting import Plotting_Matplotlib
+from .StateSpacingProtocols import KalmanProtocol, MathProtocol, PlottingProtocol
 
 @dataclass
 class LinearGaussianModel_v1_numpy:

@@ -1,5 +1,5 @@
 from typing import Protocol
-from StateSpacingProtocols import MathProtocol
+from .StateSpacingProtocols import MathProtocol
 
 import numpy as np
 
