@@ -1,7 +1,6 @@
 import pathlib
 
 from typing import List, Optional, Dict
-from torch.autograd import Variable
 from scipy.optimize import minimize
 from collections import deque
 
