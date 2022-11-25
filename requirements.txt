@@ -4,3 +4,5 @@ jupyter
 matplotlib
 scipy
 statsmodels
+cython
+
