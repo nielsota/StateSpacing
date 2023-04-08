@@ -12,12 +12,12 @@ use std::{
 pub struct GLM {
 
     // fixed
-    T: Array2<f64>,
-    H: Array2<f64>,
-    Q: Array2<f64>,
-    Z: Array2<f64>,
-    R: Array2<f64>,
-    y: Array3<f64>,
+    pub T: Array2<f64>,
+    pub H: Array2<f64>,
+    pub Q: Array2<f64>,
+    pub Z: Array2<f64>,
+    pub R: Array2<f64>,
+    pub y: Array3<f64>,
 
     // filters
 }
@@ -41,36 +41,37 @@ impl GLM {
     pub fn kalman_filter(&self) -> Result<(Array3<f64>, Array3<f64>, Array3<f64>, Array3<f64>, Array3<f64>), Box<dyn Error>> {
 
         let T = self.y.len();
-        let mut axes_iterator: ArrayBase<OwnedRepr<f64>, _> = Array3::zeros((1, 1, T));
+        let mut axes_iterator: Array3<f64> = Array3::zeros((1, 1, T));
 
-        let mut a_3d: ArrayBase<OwnedRepr<f64>, _> = Array3::zeros((2, 1, T));
-        let mut v_3d: ArrayBase<OwnedRepr<f64>, _> = Array3::zeros((1, 1, T));
-        let mut F_3d: ArrayBase<OwnedRepr<f64>, _> = Array3::zeros((1, 1, T));
-        let mut P_3d: ArrayBase<OwnedRepr<f64>, _> = Array3::zeros((2, 2, T));
-        let mut K_3d: ArrayBase<OwnedRepr<f64>, _> = Array3::zeros((2, 1, T));
+        let mut a_3d: Array3<f64> = Array3::zeros((2, 1, T));
+        let mut v_3d: Array3<f64> = Array3::zeros((1, 1, T));
+        let mut F_3d: Array3<f64> = Array3::zeros((1, 1, T));
+        let mut P_3d: Array3<f64> = Array3::zeros((2, 2, T));
+        let mut K_3d: Array3<f64> = Array3::zeros((2, 1, T));
         
-        let mut a_prev: ArrayBase<OwnedRepr<f64>, _> = Array2::zeros((2, 1));
-        let mut v_prev: ArrayBase<OwnedRepr<f64>, _> = Array2::zeros((1, 1));
-        let mut F_prev: ArrayBase<OwnedRepr<f64>, _> = Array2::zeros((1, 1));
-        let mut P_prev: ArrayBase<OwnedRepr<f64>, _> = Array2::zeros((2, 2));
-        let mut K_prev: ArrayBase<OwnedRepr<f64>, _> = Array2::zeros((2, 1));
+        let mut a_prev: Array2<f64> = Array2::zeros((2, 1));
+        let mut v_prev: Array2<f64> = Array2::zeros((1, 1));
+        let mut F_prev: Array2<f64> = Array2::zeros((1, 1));
+        let mut P_prev: Array2<f64> = Array2::zeros((2, 2));
+        let mut K_prev: Array2<f64> = Array2::zeros((2, 1));
 
         // need to enumerate to use i
         for (i, _) in axes_iterator.axis_iter_mut(Axis(2)).enumerate() {
             
             // retrieve slices of the data
-            let mut a_temp: ArrayBase<ViewRepr<&mut f64>, _> = a_3d.slice_mut(s![..,..,i]);
-            let mut v_temp: ArrayBase<ViewRepr<&mut f64>, _> = v_3d.slice_mut(s![..,..,i]);
-            let mut F_temp: ArrayBase<ViewRepr<&mut f64>, _> = F_3d.slice_mut(s![..,..,i]);
-            let mut P_temp: ArrayBase<ViewRepr<&mut f64>, _> = P_3d.slice_mut(s![..,..,i]);
-            let mut K_temp: ArrayBase<ViewRepr<&mut f64>, _> = K_3d.slice_mut(s![..,..,i]);
+            let mut a_temp: ArrayViewMut2<f64> = a_3d.slice_mut(s![..,..,i]);
+            let mut v_temp: ArrayViewMut2<f64> = v_3d.slice_mut(s![..,..,i]);
+            let mut F_temp: ArrayViewMut2<f64> = F_3d.slice_mut(s![..,..,i]);
+            let mut P_temp: ArrayViewMut2<f64> = P_3d.slice_mut(s![..,..,i]);
+            let mut K_temp: ArrayViewMut2<f64> = K_3d.slice_mut(s![..,..,i]);
+            
 
             // in first iteration: set first values of a and P and compute corresponding v and F
             // TODO: add diffuse initialization
             if i == 0 {
 
                 // get y_0
-                let y_temp: ArrayBase<ViewRepr<&f64>, _> = self.y.slice(s![.., .., i]);
+                let y_temp: ArrayView2<f64> = self.y.slice(s![.., .., i]);
 
                 // set a_0 and P_0
                 a_temp.assign(&arr2(&[[0.0], [0.0]]));
@@ -128,7 +129,7 @@ impl GLM {
                 ); 
                 
                 // get current y
-                let y_temp: ArrayBase<ViewRepr<&f64>, _> = self.y.slice(s![.., .., i]);
+                let y_temp: ArrayView2<f64> = self.y.slice(s![.., .., i]);
                 
                 // get prediction error
                 v_temp.assign(&(

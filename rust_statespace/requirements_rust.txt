@@ -1,0 +1,8 @@
+pyo3 = "0.15.1"
+numpy = "0.15"
+ndarray = "0.15.3"
+ndarray-linalg = { version = "0.13", features = ["openblas-system"] }
+ndarray-stats = "0.3"
+ndarray-rand = "0.11"
+rand = "0.7"
+csv = "1.1"

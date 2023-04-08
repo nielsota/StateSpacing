@@ -1,7 +1,7 @@
 mod glm;
 
 use numpy::ndarray::{ArrayD, ArrayViewD, ArrayViewMutD};
-use numpy::{IntoPyArray, PyArrayDyn, PyReadonlyArrayDyn, PyReadonlyArray2, PyReadonlyArray3, PyArray3};
+use numpy::{IntoPyArray, PyArrayDyn, PyReadonlyArrayDyn, PyReadonlyArray2, PyReadonlyArray3, PyArray2, PyArray3};
 use pyo3::{pymodule, types::PyModule, PyResult, Python};
 use glm::GLM;
 
@@ -12,7 +12,7 @@ fn rust_statespace(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     #[allow(non_snake_case)]
     #[pyfn(m)]
     #[pyo3(name = "kalman_filter")]
-    fn kalman_filter_py<'py>(
+    pub fn kalman_filter_py<'py>(
         py: Python<'py>,
         T: PyReadonlyArray2<f64>,
         H: PyReadonlyArray2<f64>,
@@ -20,7 +20,8 @@ fn rust_statespace(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
         Z: PyReadonlyArray2<f64>,
         R: PyReadonlyArray2<f64>,
         y: PyReadonlyArray3<f64>,
-    ) -> (&'py PyArray3<f64>, 
+    ) -> 
+    (&'py PyArray3<f64>, 
     &'py PyArray3<f64>,
     &'py PyArray3<f64>,
     &'py PyArray3<f64>,
@@ -35,11 +36,13 @@ fn rust_statespace(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
         let R = R.as_array().to_owned();
         let y = y.as_array().to_owned();
 
-        // instantiate the 
+        // instantiate the GLM
         let LLTM = GLM::new(T, H, Q, Z, R, y);
 
+        // run the kalman filter
         let (a_3d, P_3d, v_3d, F_3d, K_3d) = LLTM.kalman_filter().unwrap();
 
+        // return the arrays as numpy arrays
         ((a_3d).into_pyarray(py), (P_3d).into_pyarray(py), (v_3d).into_pyarray(py), (F_3d).into_pyarray(py), (K_3d).into_pyarray(py))
     }
 
