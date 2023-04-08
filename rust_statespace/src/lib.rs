@@ -8,7 +8,7 @@ use glm::GLM;
 #[pymodule]
 fn rust_statespace(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
 
-    // wrapper of `axpy`
+    // wrapper of kalman filter
     #[allow(non_snake_case)]
     #[pyfn(m)]
     #[pyo3(name = "kalman_filter")]
