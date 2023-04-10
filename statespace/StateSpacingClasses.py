@@ -358,7 +358,6 @@ class LLM_v1_numpy(LinearGaussianModel_v1_numpy):
         super().__init__(y, T, Z, R, Q, H, diffuse, dict_param_llm, filter_map)
 
 
-
 @dataclass
 class LinearGaussianModel_v2_numpy:
     

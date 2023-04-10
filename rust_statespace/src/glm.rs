@@ -7,7 +7,6 @@ use std::{
 };
 
 // only put the variables required to compute filters in the struct
-// 1. 
 #[allow(non_snake_case)]
 pub struct GLM {
 
@@ -19,7 +18,6 @@ pub struct GLM {
     pub R: Array2<f64>,
     pub y: Array3<f64>,
 
-    // filters
 }
 
 #[allow(non_snake_case, dead_code)]
@@ -41,33 +39,45 @@ impl GLM {
     pub fn kalman_filter(&self) -> Result<(Array3<f64>, Array3<f64>, Array3<f64>, Array3<f64>, Array3<f64>), Box<dyn Error>> {
 
         let T = self.y.len();
+        let p = self.T.ncols();
+        let s: usize = self.Z.nrows();
+
         let mut axes_iterator: Array3<f64> = Array3::zeros((1, 1, T));
 
-        let mut a_3d: Array3<f64> = Array3::zeros((2, 1, T));
-        let mut v_3d: Array3<f64> = Array3::zeros((1, 1, T));
-        let mut F_3d: Array3<f64> = Array3::zeros((1, 1, T));
-        let mut P_3d: Array3<f64> = Array3::zeros((2, 2, T));
-        let mut K_3d: Array3<f64> = Array3::zeros((2, 1, T));
+        let mut a_3d:   Array3<f64> = Array3::zeros((p, 1, T));
+        let mut att_3d: Array3<f64> = Array3::zeros((p, 1, T));
+        let mut v_3d:   Array3<f64> = Array3::zeros((s, 1, T));
+        let mut F_3d:   Array3<f64> = Array3::zeros((s, s, T));
+        let mut P_3d:   Array3<f64> = Array3::zeros((p, p, T));
+        let mut Ptt_3d: Array3<f64> = Array3::zeros((p, p, T));
+        let mut M_3d:   Array3<f64> = Array3::zeros((p, s, T));
+        let mut K_3d:   Array3<f64> = Array3::zeros((p, s, T));
         
-        let mut a_prev: Array2<f64> = Array2::zeros((2, 1));
-        let mut v_prev: Array2<f64> = Array2::zeros((1, 1));
-        let mut F_prev: Array2<f64> = Array2::zeros((1, 1));
-        let mut P_prev: Array2<f64> = Array2::zeros((2, 2));
-        let mut K_prev: Array2<f64> = Array2::zeros((2, 1));
+        let mut a_prev:   Array2<f64> = Array2::zeros((p, 1));
+        let mut att_prev: Array2<f64> = Array2::zeros((p, 1));
+        let mut v_prev:   Array2<f64> = Array2::zeros((s, 1));
+        let mut F_prev:   Array2<f64> = Array2::zeros((s, s));
+        let mut P_prev:   Array2<f64> = Array2::zeros((p, p));
+        let mut Ptt_prev: Array2<f64> = Array2::zeros((p, p));
+        let mut M_prev:   Array2<f64> = Array2::zeros((p, s));
+        let mut K_prev:   Array2<f64> = Array2::zeros((p, s));
 
         // need to enumerate to use i
         for (i, _) in axes_iterator.axis_iter_mut(Axis(2)).enumerate() {
             
             // retrieve slices of the data
-            let mut a_temp: ArrayViewMut2<f64> = a_3d.slice_mut(s![..,..,i]);
-            let mut v_temp: ArrayViewMut2<f64> = v_3d.slice_mut(s![..,..,i]);
-            let mut F_temp: ArrayViewMut2<f64> = F_3d.slice_mut(s![..,..,i]);
-            let mut P_temp: ArrayViewMut2<f64> = P_3d.slice_mut(s![..,..,i]);
-            let mut K_temp: ArrayViewMut2<f64> = K_3d.slice_mut(s![..,..,i]);
+            let mut a_temp:   ArrayViewMut2<f64> = a_3d.slice_mut(s![..,..,i]);
+            let mut att_temp: ArrayViewMut2<f64> = att_3d.slice_mut(s![..,..,i]);
+            let mut v_temp:   ArrayViewMut2<f64> = v_3d.slice_mut(s![..,..,i]);
+            let mut F_temp:   ArrayViewMut2<f64> = F_3d.slice_mut(s![..,..,i]);
+            let mut P_temp:   ArrayViewMut2<f64> = P_3d.slice_mut(s![..,..,i]);
+            let mut Ptt_temp: ArrayViewMut2<f64> = Ptt_3d.slice_mut(s![..,..,i]);
+            let mut M_temp:   ArrayViewMut2<f64> = M_3d.slice_mut(s![..,..,i]);
+            let mut K_temp:   ArrayViewMut2<f64> = K_3d.slice_mut(s![..,..,i]);
             
-
             // in first iteration: set first values of a and P and compute corresponding v and F
             // TODO: add diffuse initialization
+            // TODO: add incasting
             if i == 0 {
 
                 // get y_0
@@ -85,20 +95,25 @@ impl GLM {
                     &self.Z.dot(&P_temp.dot(&self.Z.t())) + &self.H
                 ));
 
-                // compute Kalman gain
-                K_temp.assign(&(
-                    &self.T.dot(
-                        &P_temp.dot(
-                            &self.Z.t().dot(
-                                &F_temp.inv().unwrap()
-                            )
+                // compute incasted Kalman gain M
+                M_temp.assign(&(
+                    &P_temp.dot(
+                        &self.Z.t().dot(
+                            &F_temp.inv().unwrap()
                         )
                     )
+                ));
+
+                // compute Kalman gain K
+                K_temp.assign(&(
+                    &self.T.dot(
+                        &M_temp)
                 ));
 
                 // persist lagged a in memory
                 a_prev.assign(&a_temp);
                 P_prev.assign(&P_temp);
+                M_prev.assign(&M_temp);
                 K_prev.assign(&K_temp);
                 v_prev.assign(&v_temp);
                 F_prev.assign(&F_temp);
@@ -141,20 +156,25 @@ impl GLM {
                     &self.Z.dot(&P_temp.dot(&self.Z.t())) + &self.H
                 ));
 
-                // compute Kalman gain
-                K_temp.assign(&(
-                    &self.T.dot(
-                        &P_temp.dot(
-                            &self.Z.t().dot(
-                                &F_temp.inv().unwrap()
-                            )
+                // compute incasted Kalman gain M
+                M_temp.assign(&(
+                    &P_temp.dot(
+                        &self.Z.t().dot(
+                            &F_temp.inv().unwrap()
                         )
                     )
+                ));
+
+                // compute Kalman gain K
+                K_temp.assign(&(
+                    &self.T.dot(
+                        &M_temp)
                 ));
 
                 // persist lagged a in memory
                 a_prev.assign(&a_temp);
                 P_prev.assign(&P_temp);
+                M_prev.assign(&M_temp);
                 K_prev.assign(&K_temp);
                 v_prev.assign(&v_temp);
                 F_prev.assign(&F_temp);

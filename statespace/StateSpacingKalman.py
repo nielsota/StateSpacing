@@ -4,6 +4,7 @@ from .StateSpacingProtocols import KalmanProtocol, MathProtocol
 from .utils import _initiate_variables, _get_nan_positions, _map_vector_to_matrices, _remove_nan_tensor, _remove_inf_tensor
 
 import numpy as np
+import rust_statespace as rs
 
 """
 
@@ -640,6 +641,174 @@ class KalmanV3(KalmanProtocol):
             # do final incasting update
             y_t = y[:, :, n-1]
             _, _, att[:, :, n-1], Ptt[:, :, n-1], M[:, :, n-1], K[:, :, n-1], F[:, :, n-1], v[:, :, n-1] = self._kalman_step_missing(T[:, :, t-1], Z[:, :, t-1], R[:, :, t-1], Q[:, :, t-1], H[:, :, t-1], a[:, :, n-1], P[:, :, n-1], y_t, n, p, s)
+        
+        return a, att, P, Ptt, F, v, K, M 
+    
+    def kalman_smoother(self, *args, dtype=np.float64) -> List[np.ndarray]:
+        """perform kalman smoothing
+
+        Returns:
+            List[np.ndarray]: filters and states
+        """
+        T, Z, R, Q, H, a, P, v, F, K, shapes = args
+        
+        # number of observations
+        n = shapes['n']
+        
+        # dimension of state vector
+        p = shapes['p']
+
+        # dimension of observation vector
+        s = shapes['s']
+        
+        # instantiate a_hat
+        a_hat = np.zeros_like(a)
+        P_hat = np.zeros_like(P)
+        
+        # L' = (T - KZ)'
+        L = T - np.einsum('ijn,jkn->ikn', K, Z)
+        
+        # r[n+1] = r_n = 0
+        r = np.zeros((p, 1, n + 1)).astype(dtype)
+        N = np.zeros((p, p, n + 1)).astype(dtype)
+        
+        # a[0] contains a_1, y[0] contains y_1
+        
+        # from T...0
+        for t in range(n-1, -1, -1):
+            
+            # get r: depends on v -> adjust for missing values since v could be nan
+            if np.isnan(v[:, :, t]):
+                r[:, :, t] =  r[:, :, t+1]
+            else:
+                r[:, :, t] = self.ssmath._mm3(Z[:, :, t].T, self.ssmath._inv(F[:, :, t]), v[:, :, t]) + self.ssmath._mm(L[:, :, t].T, r[:, :, t+1])
+        
+            # get N
+            N[:, :, t] = self.ssmath._mm3(Z[:, :, t].T, self.ssmath._inv(F[:, :, t]), Z[:, :, t]) + self.ssmath._mm3(L[:, :, t].T, N[:, :, t+1] , L[:, :, t]) 
+            
+            # enter smoothed filter and smoothed filter variance
+            a_hat[:, :, t] = a[:, :, t] + self.ssmath._mm(P[:, :, t], r[:, :, t])
+            P_hat[:, :, t] = P[:, :, t] - self.ssmath._mm3(P[:, :, t], N[:, :, t] , P[:, :, t])
+            
+        return a_hat, P_hat, r, N, L
+
+    def kalman_forecast(self, *args, time=10, dtype=np.float64) -> List[np.ndarray]:
+        """Predict states and observable for given time window
+
+        Args:
+            time (int, optional): prediction window . Defaults to 10.
+            dtype (_type_, optional): type of output. Defaults to np.float64.
+
+        Returns:
+            List[np.ndarray]: prediction of state, state variance and observable
+        """
+        T, Z, R, Q, H, att, Ptt, shapes = args
+        
+        # number of observations
+        n = shapes['n']
+        
+        # dimension of state vector
+        p = shapes['p']
+
+        # dimension of observation vector
+        s = shapes['s']
+        
+        # initiate filters (a, att), filter variances (P, Ptt), errors (v), error variances (F), and Kalman gains (K, M)
+        a_forecast, P_forecast = np.zeros((p, 1, time + 1)).astype(dtype), np.zeros((p, p, n)).astype(dtype)
+        a_forecast[:,:,0], P_forecast[:,:,0] = att[:, :, -1], Ptt[:, :, -1]
+        
+        for t in range(1, time + 1):
+            a_forecast[:,:,t] = self.ssmath._mm(T, a_forecast[:,:,t-1])
+            P_forecast[:,:,t] = self.ssmath._mm3(T, P_forecast[:,:,t-1], T.T) + self.ssmath._mm3(R, Q, R.T)
+        
+        return a_forecast[:,:,1:], P_forecast[:,:,1:]
+    
+    def log_likelihood(self, params, *args) -> float:
+        
+        T, Z, R, Q, H, y, param_map, diffuse, shapes = args
+        T, Z, R, Q, H = _map_vector_to_matrices(params, param_map, T, Z, R, Q, H)
+        
+        # get means and variances
+        _, _, _, _, F, v, _, _  = self.kalman_filter(T, Z, R, Q, H, y, diffuse, shapes)
+        
+        if diffuse:
+            num_states = T.shape[0]
+            F = F[:, :, num_states:]
+            v = v[:, :, num_states:]
+        
+        # If an observation at time t is not present, should not include in log-likelihood
+        v = _remove_nan_tensor(v)
+        F = _remove_inf_tensor(F)
+        
+        # number of observations
+        n = shapes['n']
+        
+        # dimension of state vector
+        p = shapes['p']
+
+        # dimension of observation vector
+        s = shapes['s']
+        
+        # get elementwise log determinants log|F|: check docs numpy returns (signs, abs of logdet)
+        F_logdets = np.linalg.slogdet(F.transpose(2, 0, 1))
+        F_logdets = F_logdets[0] * F_logdets[1]
+        
+        # get elementwise v'F^(-1)v, then convert shape from [100, 1, 1] -> [100]
+        vFv = np.squeeze(self.ssmath._bmm3(v.transpose(2, 1, 0), self.ssmath._inv(F.transpose(2, 0, 1)), v.transpose(2, 0, 1)))
+        
+        # constant value 
+        const = s * np.log(2 * np.pi) * np.ones_like(vFv)
+        
+        # compute log-likelihood
+        llik = -(1/2) * np.sum(const + vFv + F_logdets) 
+        
+        negative_llik = -llik.item()
+        
+        return negative_llik
+    
+
+class KalmanRust_V1_0(KalmanProtocol):
+    """
+    Same as numpy v3 but with Rust implementation of Kalman filtering algorithm
+
+    Limitations:
+        - Only works for static state matrices, cannot have time varying T or Z. 
+    
+    """
+
+    # get an object of type math protocol to handle the math
+    ssmath: MathProtocol = StateSpaceMathNumpyV3
+
+    def _kalman_step(self, *args) -> List[np.ndarray]:
+        """Computes the next step in the Kalman recursion using numpy math methods
+
+        Returns:
+            List[np.ndarray]: a_next, P_next, att, Ptt, M, K, F, v
+        """
+        
+        pass
+
+    def _kalman_step_missing(self, *args, dtype=np.float64) -> List[np.ndarray]:
+        """Computes the next step in the Kalman recursion when y is missing using numpy math methods
+
+        Returns:
+            List[np.ndarray]: a_next, P_next, att, Ptt, M, K, F, v
+        """
+        pass
+
+    def kalman_filter(self, *args, dtype=np.float64) -> List[np.ndarray]:
+        """the Kalman filter recursion
+
+        Args:
+            args: see above for description of variables
+            dtype (_type_, optional): _description_. Defaults to np.float64.
+
+        Returns:
+            List[np.ndarray]: filters and gains (see above for definition)
+        """
+        T, Z, R, Q, H, y, _, _ = args
+        
+        a, P, v, F, K = rs.kalman_filter(T[:, :, 10], H[:, :, 10], Q[:, :, 10], Z[:, :, 10], R[:, :, 10], y)
         
         return a, att, P, Ptt, F, v, K, M 
     
