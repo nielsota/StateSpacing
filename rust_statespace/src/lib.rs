@@ -25,6 +25,8 @@ fn rust_statespace(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     &'py PyArray3<f64>,
     &'py PyArray3<f64>,
     &'py PyArray3<f64>,
+    &'py PyArray3<f64>,
+    &'py PyArray3<f64>,
     &'py PyArray3<f64>)
      {
         
@@ -40,10 +42,10 @@ fn rust_statespace(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
         let LLTM = GLM::new(T, H, Q, Z, R, y);
 
         // run the kalman filter
-        let (a_3d, P_3d, v_3d, F_3d, K_3d) = LLTM.kalman_filter().unwrap();
+        let (a_3d, att_3d, P_3d, Ptt_3d, v_3d, F_3d, K_3d) = LLTM.kalman_filter().unwrap();
 
         // return the arrays as numpy arrays
-        ((a_3d).into_pyarray(py), (P_3d).into_pyarray(py), (v_3d).into_pyarray(py), (F_3d).into_pyarray(py), (K_3d).into_pyarray(py))
+        ((a_3d).into_pyarray(py), (att_3d).into_pyarray(py), (P_3d).into_pyarray(py), (Ptt_3d).into_pyarray(py), (v_3d).into_pyarray(py), (F_3d).into_pyarray(py), (K_3d).into_pyarray(py))
     }
 
     Ok(())

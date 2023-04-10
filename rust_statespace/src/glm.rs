@@ -36,7 +36,7 @@ impl GLM {
     }
 
     // Run Kalman Filter on instance variables
-    pub fn kalman_filter(&self) -> Result<(Array3<f64>, Array3<f64>, Array3<f64>, Array3<f64>, Array3<f64>), Box<dyn Error>> {
+    pub fn kalman_filter(&self) -> Result<(Array3<f64>, Array3<f64>, Array3<f64>, Array3<f64>, Array3<f64>, Array3<f64>, Array3<f64>), Box<dyn Error>> {
 
         let T = self.y.len();
         let p = self.T.ncols();
@@ -80,17 +80,18 @@ impl GLM {
             // TODO: add incasting
             if i == 0 {
 
-                // get y_0
-                let y_temp: ArrayView2<f64> = self.y.slice(s![.., .., i]);
-
                 // set a_0 and P_0
                 a_temp.assign(&arr2(&[[0.0], [0.0]]));
                 P_temp.assign(&arr2(&[[1.0, 0.0], [0.0, 1.0]]));
+
+                // get y_0
+                let y_temp: ArrayView2<f64> = self.y.slice(s![.., .., i]);
 
                 // get first error and error variance: v and F
                 v_temp.assign(&(
                     &y_temp - &self.Z.dot(&a_temp))
                 );
+                
                 F_temp.assign(&(
                     &self.Z.dot(&P_temp.dot(&self.Z.t())) + &self.H
                 ));
@@ -109,6 +110,17 @@ impl GLM {
                     &self.T.dot(
                         &M_temp)
                 ));
+                
+                // compute incasted att
+                att_temp.assign(&(
+                    &a_temp + &M_temp.dot(&v_temp)
+                ));
+
+                // compute incasted Ptt
+                Ptt_temp.assign(&(
+                    &P_temp - 
+                        &M_temp.dot(&F_temp.dot(&M_temp.t()))
+                ));
 
                 // persist lagged a in memory
                 a_prev.assign(&a_temp);
@@ -117,30 +129,29 @@ impl GLM {
                 K_prev.assign(&K_temp);
                 v_prev.assign(&v_temp);
                 F_prev.assign(&F_temp);
+                att_prev.assign(&att_temp);
+                Ptt_prev.assign(&Ptt_temp);
             }
 
             else {
 
                 // get new a_i and assign to mutable a_3d slice
                 a_temp.assign(&(
-                    &self.T.dot(&a_prev) + &K_prev.dot(&v_prev)
+                    &self.T.dot(&att_prev)
                 ));
 
                 // get new P_i and assign to mutable slide of P_3d
                 P_temp.assign(&
                     (&self.T.dot(
-                        &P_prev.dot(
+                        &Ptt_prev.dot(
                             &self.T.t()
                         )
                     ) + &self.R.dot(
                             &self.Q.dot(
                                 &self.R.t()
-                        )
-                    ) + &K_prev.dot(
-                            &F_prev.dot(
-                                &K_prev.t()
-                        )
-                    ))
+                            )
+                        ) 
+                    )
                 ); 
                 
                 // get current y
@@ -171,6 +182,17 @@ impl GLM {
                         &M_temp)
                 ));
 
+                // compute incasted att
+                att_temp.assign(&(
+                    &a_temp + &M_temp.dot(&v_temp)
+                ));
+
+                // compute incasted Ptt
+                Ptt_temp.assign(&(
+                    &P_temp - 
+                        &M_temp.dot(&F_temp.dot(&M_temp.t()))
+                ));
+
                 // persist lagged a in memory
                 a_prev.assign(&a_temp);
                 P_prev.assign(&P_temp);
@@ -178,10 +200,12 @@ impl GLM {
                 K_prev.assign(&K_temp);
                 v_prev.assign(&v_temp);
                 F_prev.assign(&F_temp);
+                att_prev.assign(&att_temp);
+                Ptt_prev.assign(&Ptt_temp);
             }
         }
 
-        Ok((a_3d, P_3d, v_3d, F_3d, K_3d))
+        Ok((a_3d, att_3d, P_3d, Ptt_3d, v_3d, F_3d, K_3d))
 
     }
 

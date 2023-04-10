@@ -31,7 +31,7 @@ fn main() {
 
     let LLTM = GLM::new(T, H, Q, Z, R, y);
     LLTM.print_shapes();
-    let (a_3d, P_3d, v_3d, F_3d, K_3d) = LLTM.kalman_filter().unwrap();
+    let (a_3d, att_3d, P_3d, Ptt_3d, v_3d, F_3d, K_3d) = LLTM.kalman_filter().unwrap();
 
     println!("{}", &LLTM.y);
     println!("{}", a_3d.slice(s![0, .., ..]));
