@@ -36,7 +36,7 @@ impl GLM {
     }
 
     // Run Kalman Filter on instance variables
-    pub fn kalman_filter(&self) -> Result<(Array3<f64>, Array3<f64>, Array3<f64>, Array3<f64>, Array3<f64>, Array3<f64>, Array3<f64>), Box<dyn Error>> {
+    pub fn kalman_filter(&self) -> Result<(Array3<f64>, Array3<f64>, Array3<f64>, Array3<f64>, Array3<f64>, Array3<f64>, Array3<f64>, Array3<f64>), Box<dyn Error>> {
 
         let T = self.y.len();
         let p = self.T.ncols();
@@ -81,8 +81,8 @@ impl GLM {
             if i == 0 {
 
                 // set a_0 and P_0
-                a_temp.assign(&arr2(&[[0.0], [0.0]]));
-                P_temp.assign(&arr2(&[[1.0, 0.0], [0.0, 1.0]]));
+                a_temp.assign(&Array2::zeros((p, 1)));
+                P_temp.assign(&(1e6 * &Array2::eye(p)));
 
                 // get y_0
                 let y_temp: ArrayView2<f64> = self.y.slice(s![.., .., i]);
@@ -91,7 +91,7 @@ impl GLM {
                 v_temp.assign(&(
                     &y_temp - &self.Z.dot(&a_temp))
                 );
-                
+
                 F_temp.assign(&(
                     &self.Z.dot(&P_temp.dot(&self.Z.t())) + &self.H
                 ));
@@ -205,7 +205,7 @@ impl GLM {
             }
         }
 
-        Ok((a_3d, att_3d, P_3d, Ptt_3d, v_3d, F_3d, K_3d))
+        Ok((a_3d, att_3d, P_3d, Ptt_3d, v_3d, F_3d, K_3d, M_3d))
 
     }
 

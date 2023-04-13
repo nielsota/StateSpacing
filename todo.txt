@@ -1,0 +1,4 @@
+To Do List
+
+1. Get a working LGM class that uses Rust Kalman Filter
+2. Validate that the output after training is correct

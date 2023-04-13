@@ -1,13 +1,10 @@
 use std::{
-    env,
     error::Error,
-    ffi::OsString,
     fs::File,
-    process,
     f64
 };
 
-use ndarray::{Array1, Array2, array};
+use ndarray::{Array1};
 
 // This module should:
 // 1. A load data function

@@ -1,20 +1,17 @@
 mod read_data;
 mod glm;
 
-use ndarray_linalg::*;
 use ndarray::*;
 use glm::GLM;
 
 use std::{
     process,
-    f64,
-    error::Error,
 };
-
+#[allow(non_snake_case, dead_code)]
 fn main() {
 
     // create vectors
-    let (x, y) = read_data::load_csv(String::from("./data/nile.csv")).unwrap_or_else(|err| {
+    let (_, y) = read_data::load_csv(String::from("./data/nile.csv")).unwrap_or_else(|err| {
         println!("Problem parsing data: {err}");
         process::exit(1);
     });
@@ -31,9 +28,9 @@ fn main() {
 
     let LLTM = GLM::new(T, H, Q, Z, R, y);
     LLTM.print_shapes();
-    let (a_3d, att_3d, P_3d, Ptt_3d, v_3d, F_3d, K_3d) = LLTM.kalman_filter().unwrap();
+    let (_, att_3d, _, _, _, _, _, _) = LLTM.kalman_filter().unwrap();
 
     println!("{}", &LLTM.y);
-    println!("{}", a_3d.slice(s![0, .., ..]));
+    println!("{}", att_3d.slice(s![0, .., ..]));
 
 }

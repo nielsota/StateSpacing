@@ -767,9 +767,9 @@ class KalmanV3(KalmanProtocol):
         return negative_llik
     
 
-class KalmanRust_V1_0(KalmanProtocol):
+class KalmanRust_V1(KalmanProtocol):
     """
-    Same as numpy v3 but with Rust implementation of Kalman filtering algorithm
+    Same as numpy v2 but with Rust implementation of Kalman filtering algorithm
 
     Limitations:
         - Only works for static state matrices, cannot have time varying T or Z. 
@@ -777,7 +777,7 @@ class KalmanRust_V1_0(KalmanProtocol):
     """
 
     # get an object of type math protocol to handle the math
-    ssmath: MathProtocol = StateSpaceMathNumpyV3
+    ssmath: MathProtocol = StateSpaceMathNumpyV2
 
     def _kalman_step(self, *args) -> List[np.ndarray]:
         """Computes the next step in the Kalman recursion using numpy math methods
@@ -808,7 +808,7 @@ class KalmanRust_V1_0(KalmanProtocol):
         """
         T, Z, R, Q, H, y, _, _ = args
         
-        a, P, v, F, K = rs.kalman_filter(T[:, :, 10], H[:, :, 10], Q[:, :, 10], Z[:, :, 10], R[:, :, 10], y)
+        a, att, P, Ptt, v, F, K, M = rs.kalman_filter(T[:, :, 10], H[:, :, 10], Q[:, :, 10], Z[:, :, 10], R[:, :, 10], y)
         
         return a, att, P, Ptt, F, v, K, M 
     
